@@ -34,15 +34,13 @@
 #  CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 #  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#import re
 
 class JuniperHash:
     @staticmethod
     def get_hash(content_string):
         lines_array = content_string.split("\n")
-        # remove the comments
         comment_free_lines_array = [x for x in lines_array if not x.startswith('#')]
-        # comment_free_lines_array = [x for x in lines_array if not x.startswith('/*')]
-        # do the work:
         return JuniperHash.format_blocks_to_hash(comment_free_lines_array)
 
     @staticmethod
@@ -71,15 +69,55 @@ class JuniperHash:
 
     @staticmethod
     def extract_key_value_from_line(line):
-        key, value = line.split(' ', 1)
-        key, value = key.strip(), value.strip()
+        comment = None
+        #print(f"Raw Line: {line}")
+        # Check if "## SECRET-DATA" is present at the end of the line
+        if line.endswith("## SECRET-DATA"):
+            line = line[:-len("## SECRET-DATA")].strip()
+        line = line.strip()
+        if "##" in line:
+            print(f"COMMENT: {line}")
+            #line.strip("'")
+            parts = line.split('##')
+            key = "COMMENT"
+            if len(parts[0]) > 0:
+                key = parts[0].strip()
+            #else:
+            if len(parts[1]) > 0:
+                value = parts[1].strip()
+
+        if ((comment is not None) and (len(comment) == 0)):
+            comment = None
+        #if comment != None:
+        #    print(f"WARN: {key} {comment}")
+
+        if " " not in line:
+            key = line.split(';')[0]
+            value = "True"
+            return key, value
+        else:
+            if line.endswith(";"):
+                key, value = line.split(' ', 1)
+                key, value = key.strip(), value.strip(";")
+                if '"' in value:
+                    #value = re.findall(r'"([^"]*)"', string)
+                    value.strip('"')
+                    #print(f"\tFound Double Quotes {value}")
+                return key, value
+            else:
+                #print(f"Processing line {line}")
+                key, value = line.split(' ', 1)
+                key, value = key.strip(), value.strip()
+
+        #if "## Last commit:" in line:
+        #    return "last_commit", value
+
+        #if line.startswith("#"):
+        #    return None
+
         if value:
-            # example line:
-            # instance-type vrf;
             return key, value[:-1]
         else:
-            # example line:
-            # vlan-tagging;
             return key[:-1], ''
 
     @staticmethod
