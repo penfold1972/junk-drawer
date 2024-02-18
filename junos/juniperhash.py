@@ -6,6 +6,8 @@
 # Converted by ChatGPT from the following Ruby Script:
 #  https://raw.githubusercontent.com/sventantau/juniper_hash/master/juniper_hash.rb
 #
+# Updated by Steven Cobb 2024 to further enhance processing
+#
 # Usage: (Ruby instructions, needs to be tested with Python version)
 # require 'juniper_hash'
 # hash_config = JuniperHash.get_hash(File.open('juniper.conf').read)
@@ -34,14 +36,26 @@
 #  CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 #  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 #  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-#import re
 
 class JuniperHash:
     @staticmethod
     def get_hash(content_string):
         lines_array = content_string.split("\n")
-        comment_free_lines_array = [x for x in lines_array if not x.startswith('#')]
+        comment_free_lines_array = [x for x in lines_array if JuniperHash.filter_line(x)]
         return JuniperHash.format_blocks_to_hash(comment_free_lines_array)
+
+    @staticmethod
+    def filter_line(line):
+        line = line.strip()
+        if line == '##':
+            return False
+        elif line.startswith('##'):
+            return True
+        elif line.startswith('#'):
+            return False
+        elif line.startswith('/*'):
+            return False
+        return True
 
     @staticmethod
     def build_config_from_hash(block, name=None, level=0):
@@ -76,7 +90,7 @@ class JuniperHash:
             line = line[:-len("## SECRET-DATA")].strip()
         line = line.strip()
         if "##" in line:
-            print(f"COMMENT: {line}")
+            #print(f"COMMENT: {line}")
             #line.strip("'")
             parts = line.split('##')
             key = "COMMENT"
@@ -100,7 +114,6 @@ class JuniperHash:
                 key, value = line.split(' ', 1)
                 key, value = key.strip(), value.strip(";")
                 if '"' in value:
-                    #value = re.findall(r'"([^"]*)"', string)
                     value.strip('"')
                     #print(f"\tFound Double Quotes {value}")
                 return key, value
@@ -109,8 +122,13 @@ class JuniperHash:
                 key, value = line.split(' ', 1)
                 key, value = key.strip(), value.strip()
 
-        #if "## Last commit:" in line:
-        #    return "last_commit", value
+        if "## Last commit:" in line:
+           parts = line.split(": ")
+           if len(parts) > 1:
+               value = parts[1].strip("'")
+           else:
+               value = line
+           return "last_commit", value
 
         #if line.startswith("#"):
         #    return None
